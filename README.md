@@ -41,6 +41,12 @@ docker compose up --build
 * Backend: [http://localhost:3000](http://localhost:3000)
 * PostgreSQL: localhost:5433
 
+##### After docker run use test account:
+```
+username: demo@example.com
+password: password123
+```
+
 ---
 
 ## Seed Data / Demo
