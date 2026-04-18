@@ -2,9 +2,9 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { json } from "express";
 
-import { config } from "./config/index.js";
-import routes from "./routes/index.js";
-import { errorHandler, notFoundHandler } from "./shared/middleware/index.js";
+import { config } from "./config/index";
+import routes from "./routes/index";
+import { errorHandler, notFoundHandler } from "./shared/middleware/index";
 
 const app = express();
 

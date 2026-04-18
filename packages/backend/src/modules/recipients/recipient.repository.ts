@@ -1,12 +1,9 @@
-import db from "@/db/index.js";
-import { TABLES } from "@/shared/constants/index.js";
-import { generateUuidV7 } from "@/shared/utils/index.js";
+import db from "@/db/index";
+import { TABLES } from "@/shared/constants/index";
+import { generateUuidV7 } from "@/shared/utils/index";
 
-import type {
-  CreateRecipientInput,
-  RecipientQuery,
-} from "./recipient.types.js";
-import type { Recipient } from "@/shared/types/index.js";
+import type { CreateRecipientInput, RecipientQuery } from "./recipient.types";
+import type { Recipient } from "@/shared/types/index";
 
 export interface FindManyResult {
   data: Recipient[];

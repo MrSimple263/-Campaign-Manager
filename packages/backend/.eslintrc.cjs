@@ -55,4 +55,5 @@ module.exports = {
     "import/newline-after-import": "error",
   },
   ignorePatterns: ["dist/", "node_modules/", ".eslintrc.cjs"],
+  include: ["vitest.config.ts"],
 };

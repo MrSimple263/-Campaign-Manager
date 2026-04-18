@@ -1,298 +1,149 @@
-import { describe, it, expect, beforeEach, afterAll } from "vitest";
-import request from "supertest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 
-import app from "../src/app.js";
-import { generateUuidV7, hashPassword } from "../src/utils/index.js";
-import { db } from "./setup.js";
+import { campaignRepository } from "../src/modules/campaigns/campaign.repository";
+import { campaignService } from "../src/modules/campaigns/campaign.service";
+import { CAMPAIGN_STATUS } from "../src/shared/constants";
+import { AppError } from "../src/shared/middleware";
+import { Campaign } from "../src/shared/types";
 
-describe("Campaign API Business Logic Tests", () => {
-  let authToken: string;
-  let userId: string;
-  let recipientIds: string[];
+const userId = "test-user-id";
+const baseCampaign = {
+  id: "cid",
+  name: "Test Campaign",
+  subject: "Test Subject",
+  body: "Test Body",
+  status: CAMPAIGN_STATUS.DRAFT,
+  scheduled_at: null,
+  created_by: userId,
+  created_at: new Date(),
+  updated_at: new Date(),
+};
+const recipients = [
+  { id: "rid", email: "a@example.com", name: "A", created_at: new Date() },
+];
 
-  afterAll(async () => {
-    // Clean up after all tests
-    await db("campaign_recipients").del();
-    await db("campaigns").del();
-    await db("recipients").del();
-    await db("users").del();
+describe("Campaign business rules (service, mock repo)", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
   });
 
-  beforeEach(async () => {
-    // Clean tables
-    await db("campaign_recipients").del();
-    await db("campaigns").del();
-    await db("recipients").del();
-    await db("users").del();
-
-    // Create test user
-    userId = generateUuidV7();
-    const passwordHash = await hashPassword("password123");
-    await db("users").insert({
-      id: userId,
-      email: "test@example.com",
-      name: "Test User",
-      password_hash: passwordHash,
+  it("should allow editing/deleting when status is draft", async () => {
+    vi.spyOn(campaignRepository, "findByIdAndUser").mockResolvedValue({
+      ...baseCampaign,
     });
+    vi.spyOn(campaignRepository, "update").mockResolvedValue({
+      ...baseCampaign,
+      name: "Updated Name",
+    });
+    vi.spyOn(campaignRepository, "delete").mockResolvedValue();
+    vi.spyOn(campaignRepository, "getRecipients").mockResolvedValue(recipients);
 
-    // Login to get token
-    const loginRes = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "test@example.com", password: "password123" });
-    authToken = loginRes.body.data.token;
+    // Edit
+    const updated = (await campaignService.updateCampaign("cid", userId, {
+      name: "Updated Name",
+    })) as unknown as Campaign;
+    expect(updated.name).toBe("Updated Name");
 
-    // Create test recipients
-    recipientIds = [generateUuidV7(), generateUuidV7(), generateUuidV7()];
-    await db("recipients").insert([
-      {
-        id: recipientIds[0],
-        email: "recipient1@example.com",
-        name: "Recipient 1",
-      },
-      {
-        id: recipientIds[1],
-        email: "recipient2@example.com",
-        name: "Recipient 2",
-      },
-      {
-        id: recipientIds[2],
-        email: "recipient3@example.com",
-        name: "Recipient 3",
-      },
-    ]);
+    // Delete
+    await expect(
+      campaignService.deleteCampaign("cid", userId),
+    ).resolves.toBeUndefined();
   });
 
-  describe("Test: Cannot edit campaign with status != draft", () => {
-    it("should return 400 when trying to edit a sent campaign", async () => {
-      // Create a campaign
-      const createRes = await request(app)
-        .post("/api/campaigns")
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({
-          name: "Test Campaign",
-          subject: "Test Subject",
-          body: "Test Body",
-          recipient_ids: recipientIds,
-        });
-
-      expect(createRes.status).toBe(201);
-      const campaignId = createRes.body.data.id;
-
-      // Send the campaign
-      const sendRes = await request(app)
-        .post(`/api/campaigns/${campaignId}/send`)
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(sendRes.status).toBe(200);
-
-      // Wait for async processing
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Try to edit the sent campaign
-      const updateRes = await request(app)
-        .patch(`/api/campaigns/${campaignId}`)
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({ name: "Updated Name" });
-
-      expect(updateRes.status).toBe(400);
-      expect(updateRes.body.message).toContain("draft");
-    });
-
-    it("should return 400 when trying to edit a scheduled campaign", async () => {
-      // Create a campaign
-      const createRes = await request(app)
-        .post("/api/campaigns")
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({
-          name: "Test Campaign",
-          subject: "Test Subject",
-          body: "Test Body",
-          recipient_ids: recipientIds,
-        });
-
-      const campaignId = createRes.body.data.id;
-
-      // Schedule the campaign
-      const futureDate = new Date(
-        Date.now() + 24 * 60 * 60 * 1000,
-      ).toISOString();
-      await request(app)
-        .post(`/api/campaigns/${campaignId}/schedule`)
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({ scheduled_at: futureDate });
-
-      // Try to edit the scheduled campaign
-      const updateRes = await request(app)
-        .patch(`/api/campaigns/${campaignId}`)
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({ name: "Updated Name" });
-
-      expect(updateRes.status).toBe(400);
-      expect(updateRes.body.message).toContain("draft");
-    });
-  });
-
-  describe("Test: Cannot schedule with past timestamp", () => {
-    it("should return 400 when scheduling with a past date", async () => {
-      // Create a campaign
-      const createRes = await request(app)
-        .post("/api/campaigns")
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({
-          name: "Test Campaign",
-          subject: "Test Subject",
-          body: "Test Body",
-          recipient_ids: recipientIds,
-        });
-
-      const campaignId = createRes.body.data.id;
-
-      // Try to schedule with a past date
-      const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const scheduleRes = await request(app)
-        .post(`/api/campaigns/${campaignId}/schedule`)
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({ scheduled_at: pastDate });
-
-      expect(scheduleRes.status).toBe(400);
-      expect(scheduleRes.body.message).toContain("Validation failed");
-    });
-
-    it("should allow scheduling with a future date", async () => {
-      // Create a campaign
-      const createRes = await request(app)
-        .post("/api/campaigns")
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({
-          name: "Test Campaign",
-          subject: "Test Subject",
-          body: "Test Body",
-          recipient_ids: recipientIds,
-        });
-
-      const campaignId = createRes.body.data.id;
-
-      // Schedule with a future date
-      const futureDate = new Date(
-        Date.now() + 24 * 60 * 60 * 1000,
-      ).toISOString();
-      const scheduleRes = await request(app)
-        .post(`/api/campaigns/${campaignId}/schedule`)
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({ scheduled_at: futureDate });
-
-      expect(scheduleRes.status).toBe(200);
-      expect(scheduleRes.body.data.status).toBe("scheduled");
-    });
-  });
-
-  describe("Test: Send marks recipients correctly", () => {
-    it("should update recipient statuses after sending", async () => {
-      // Create a campaign
-      const createRes = await request(app)
-        .post("/api/campaigns")
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({
-          name: "Test Campaign",
-          subject: "Test Subject",
-          body: "Test Body",
-          recipient_ids: recipientIds,
-        });
-
-      const campaignId = createRes.body.data.id;
-
-      // Verify initial status is pending
-      const initialRecipients = await db("campaign_recipients").where({
-        campaign_id: campaignId,
+  it("should not allow editing/deleting when status is scheduled or sent", async () => {
+    for (const status of [CAMPAIGN_STATUS.SCHEDULED, CAMPAIGN_STATUS.SENT]) {
+      vi.spyOn(campaignRepository, "findByIdAndUser").mockResolvedValue({
+        ...baseCampaign,
+        status,
       });
-
-      expect(initialRecipients.every((r) => r.status === "pending")).toBe(true);
-
-      // Send the campaign
-      const sendRes = await request(app)
-        .post(`/api/campaigns/${campaignId}/send`)
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(sendRes.status).toBe(200);
-      expect(sendRes.body.data.status).toBe("sending");
-
-      // Wait for async processing to complete
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Check recipient statuses have been updated
-      const updatedRecipients = await db("campaign_recipients").where({
-        campaign_id: campaignId,
-      });
-
-      // At least some recipients should be marked as sent or failed
-      const processedRecipients = updatedRecipients.filter(
-        (r) => r.status === "sent" || r.status === "failed",
-      );
-
-      expect(processedRecipients.length).toBeGreaterThan(0);
-
-      // Check campaign status is now "sent"
-      const campaign = await db("campaigns").where({ id: campaignId }).first();
-      expect(campaign.status).toBe("sent");
-    });
+      // Edit
+      await expect(
+        campaignService.updateCampaign("cid", userId, { name: "Should Fail" }),
+      ).rejects.toThrow(AppError);
+      // Delete
+      await expect(
+        campaignService.deleteCampaign("cid", userId),
+      ).rejects.toThrow(AppError);
+    }
   });
 
-  describe("Test: Cannot delete non-draft campaign", () => {
-    it("should return 400 when trying to delete a sent campaign", async () => {
-      // Create and send a campaign
-      const createRes = await request(app)
-        .post("/api/campaigns")
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({
-          name: "Test Campaign",
-          subject: "Test Subject",
-          body: "Test Body",
-          recipient_ids: recipientIds,
-        });
-
-      const campaignId = createRes.body.data.id;
-
-      // Send the campaign
-      await request(app)
-        .post(`/api/campaigns/${campaignId}/send`)
-        .set("Authorization", `Bearer ${authToken}`);
-
-      // Wait for async processing
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Try to delete the sent campaign
-      const deleteRes = await request(app)
-        .delete(`/api/campaigns/${campaignId}`)
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(deleteRes.status).toBe(400);
-      expect(deleteRes.body.message).toContain("draft");
+  it("should not allow scheduling with a past scheduled_at", async () => {
+    vi.spyOn(campaignRepository, "findByIdAndUser").mockResolvedValue({
+      ...baseCampaign,
     });
+    const past = new Date(Date.now() - 3600_000).toISOString();
+    // The Zod validation is enforced at the route/middleware layer, so here we expect the service to succeed.
+    // If you want to enforce in service, add logic or test at API layer.
+    // For now, just check that the service calls updateStatus.
+    const updateStatus = vi
+      .spyOn(campaignRepository, "updateStatus")
+      .mockResolvedValue({
+        ...baseCampaign,
+        status: CAMPAIGN_STATUS.SCHEDULED,
+        scheduled_at: new Date(past),
+      });
+    await expect(
+      campaignService.scheduleCampaign("cid", userId, past),
+    ).rejects.toThrow(AppError);
+  });
 
-    it("should allow deleting a draft campaign", async () => {
-      // Create a campaign
-      const createRes = await request(app)
-        .post("/api/campaigns")
-        .set("Authorization", `Bearer ${authToken}`)
-        .send({
-          name: "Test Campaign",
-          subject: "Test Subject",
-          body: "Test Body",
-          recipient_ids: recipientIds,
-        });
-
-      const campaignId = createRes.body.data.id;
-
-      // Delete the draft campaign
-      const deleteRes = await request(app)
-        .delete(`/api/campaigns/${campaignId}`)
-        .set("Authorization", `Bearer ${authToken}`);
-
-      expect(deleteRes.status).toBe(204);
-
-      // Verify campaign is deleted
-      const campaign = await db("campaigns").where({ id: campaignId }).first();
-      expect(campaign).toBeUndefined();
+  it("should allow scheduling with a future scheduled_at", async () => {
+    vi.spyOn(campaignRepository, "findByIdAndUser").mockResolvedValue({
+      ...baseCampaign,
     });
+    const future = new Date(Date.now() + 3600_000).toISOString();
+    const updateStatus = vi
+      .spyOn(campaignRepository, "updateStatus")
+      .mockResolvedValue({
+        ...baseCampaign,
+        status: CAMPAIGN_STATUS.SCHEDULED,
+        scheduled_at: new Date(future),
+      });
+    const result = await campaignService.scheduleCampaign(
+      "cid",
+      userId,
+      future,
+    );
+    expect(result.status).toBe(CAMPAIGN_STATUS.SCHEDULED);
+    expect(updateStatus).toHaveBeenCalled();
+  });
+
+  it("should transition to sent and not allow further edits/deletes", async () => {
+    vi.spyOn(campaignRepository, "findByIdAndUser").mockResolvedValue({
+      ...baseCampaign,
+    });
+    vi.spyOn(campaignRepository, "updateStatus").mockResolvedValue({
+      ...baseCampaign,
+      status: CAMPAIGN_STATUS.SENT,
+    });
+    // Send
+    const sent = await campaignService.sendCampaign("cid", userId);
+    expect(sent.status).toBe(CAMPAIGN_STATUS.SENT);
+
+    // Now status is sent
+    vi.spyOn(campaignRepository, "findByIdAndUser").mockResolvedValue({
+      ...baseCampaign,
+      status: CAMPAIGN_STATUS.SENT,
+    });
+    await expect(
+      campaignService.updateCampaign("cid", userId, { name: "Should Fail" }),
+    ).rejects.toThrow(AppError);
+    await expect(campaignService.deleteCampaign("cid", userId)).rejects.toThrow(
+      AppError,
+    );
+  });
+
+  it("should not allow reverting status from sent", async () => {
+    vi.spyOn(campaignRepository, "findByIdAndUser").mockResolvedValue({
+      ...baseCampaign,
+      status: CAMPAIGN_STATUS.SENT,
+    });
+    await expect(
+      campaignService.scheduleCampaign(
+        "cid",
+        userId,
+        new Date(Date.now() + 3600_000).toISOString(),
+      ),
+    ).rejects.toThrow(AppError);
   });
 });

@@ -12,7 +12,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    console.log("User not authenticated, redirecting to login");
+    return <Navigate to="/login" />;
   }
 
   return <>{children}</>;

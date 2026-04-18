@@ -1,0 +1,18 @@
+# --- Build Stage ---
+FROM node:20-slim AS builder
+# Thiết lập biến môi trường
+ENV TZ=UTC
+
+WORKDIR /app
+
+RUN corepack enable
+
+COPY .yarnrc.yml yarn.lock package.json ./
+COPY tsconfig.base.json ./
+COPY packages/backend ./packages/backend
+
+# Install full deps for build
+RUN yarn workspaces focus backend
+
+# Start app
+CMD ["sh", "-c", "yarn db:migrate && yarn db:seed"]

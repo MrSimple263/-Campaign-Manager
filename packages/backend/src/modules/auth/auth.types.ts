@@ -1,4 +1,4 @@
-import type { SafeUser } from "../../shared/types/index.js";
+import type { SafeUser } from "@/shared/types/index";
 
 // Input types
 export interface RegisterInput {

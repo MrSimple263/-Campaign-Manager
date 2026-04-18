@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useEffect } from "react";
 
 import { Link } from "react-router-dom";
 
@@ -13,31 +13,39 @@ const statusColors: Record<CampaignStatus, string> = {
 };
 
 const CampaignsPage = () => {
-  const [cursor, setCursor] = useState<string | null>(null);
+  const observerRef = useRef<HTMLDivElement | null>(null);
 
-  const { data, isLoading, error } = useCampaigns({
-    cursor: cursor || undefined,
+  const { data, isLoading, isFetching, fetchNextPage } = useCampaigns({
+    cursor: undefined,
     limit: 10,
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-      </div>
-    );
-  }
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!observerRef.current || !data?.pages.length) return;
+    const observer = new window.IntersectionObserver((entries) => {
+      if (
+        entries[0].isIntersecting &&
+        !isFetching &&
+        data.pages[data.pages.length - 1].hasMore
+      ) {
+        fetchNextPage();
+      }
+    });
+    observer.observe(observerRef.current);
+    return () => observer.disconnect();
+  }, [data, isFetching, fetchNextPage]);
 
-  if (error) {
-    return (
-      <div className="text-center text-red-600 py-8">
-        Error loading campaigns. Please try again.
-      </div>
-    );
-  }
+  const allCampaigns = data ? data.pages.flatMap((page) => page.data) : [];
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 relative">
+      {isLoading || isFetching && (
+        <div className="fixed inset-0 flex items-center bg-gray-100 bg-opacity-10 justify-center z-50">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600" />
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
         <Link
@@ -68,7 +76,7 @@ const CampaignsPage = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {data?.data.map((campaign: Campaign) => (
+            {allCampaigns.map((campaign: Campaign) => (
               <tr key={campaign.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <Link
@@ -97,19 +105,11 @@ const CampaignsPage = () => {
         </table>
       </div>
 
-      {/* Pagination */}
-      {data?.hasMore && (
-        <div className="mt-4 flex justify-center">
-          <button
-            onClick={() => setCursor(data.nextCursor)}
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-          >
-            Load More
-          </button>
-        </div>
-      )}
+      {/* Infinite scroll loader */}
+      <div ref={observerRef} className="h-8 flex justify-center items-center">
+      </div>
 
-      {data?.data.length === 0 && (
+      {allCampaigns.length === 0 && !(isLoading || isFetching) && (
         <div className="text-center py-8 text-gray-500">
           No campaigns found. Create your first campaign!
         </div>

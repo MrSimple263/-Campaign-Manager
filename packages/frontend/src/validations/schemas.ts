@@ -10,6 +10,9 @@ export const registerSchema = z.object({
   email: z.string().email("Invalid email format"),
   name: z.string().min(1, "Name is required").max(100, "Name too long"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  confirm_password: z
+    .string()
+    .min(8, "Confirm password must be at least 8 characters"),
 });
 
 export const RecipientSchema = z.object({

@@ -1,13 +1,13 @@
 import { sign } from "jsonwebtoken";
 
-import { config } from "../../config/index.js";
-import { AppError } from "../../shared/middleware/index.js";
-import { hashPassword, comparePassword } from "../../shared/utils/index.js";
+import { config } from "@/config/index";
+import { AppError } from "@/shared/middleware/index";
+import { hashPassword, comparePassword } from "@/shared/utils/index";
 
-import { authRepository } from "./auth.repository.js";
+import { authRepository } from "./auth.repository";
 
-import type { RegisterInput, LoginInput, AuthResponse } from "./auth.types.js";
-import type { SafeUser, User } from "../../shared/types/index.js";
+import type { RegisterInput, LoginInput, AuthResponse } from "./auth.types";
+import type { SafeUser, User } from "@/shared/types/index";
 import type { SignOptions } from "jsonwebtoken";
 
 function toSafeUser(user: User): SafeUser {

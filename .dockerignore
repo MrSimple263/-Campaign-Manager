@@ -1,0 +1,29 @@
+# node
+node_modules
+**/node_modules
+
+# build output
+dist
+build
+**/dist
+
+# git
+.git
+.gitignore
+
+# env
+.env
+.env.*
+
+# logs
+*.log
+
+# OS
+.DS_Store
+
+# docker
+Dockerfile*
+docker-compose.yml
+
+# test
+coverage

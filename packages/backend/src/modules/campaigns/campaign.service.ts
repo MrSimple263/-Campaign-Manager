@@ -1,8 +1,9 @@
-import { CAMPAIGN_STATUS } from "../../shared/constants/index.js";
-import { AppError } from "../../shared/middleware/index.js";
-import { recipientRepository } from "../recipients/recipient.repository.js";
+import { CAMPAIGN_STATUS } from "@/shared/constants/index";
+import { AppError } from "@/shared/middleware/index.js";
 
-import { campaignRepository } from "./campaign.repository.js";
+import { recipientRepository } from "../recipients/recipient.repository";
+
+import { campaignRepository } from "./campaign.repository";
 
 import type {
   CampaignQuery,
@@ -209,6 +210,10 @@ export const campaignService = {
 
     if (campaign.status !== CAMPAIGN_STATUS.DRAFT) {
       throw new AppError(400, "Only draft campaigns can be scheduled");
+    }
+
+    if (new Date(scheduledAt) <= new Date()) {
+      throw new AppError(400, "Scheduled time must be in the future");
     }
 
     return campaignRepository.updateStatus(

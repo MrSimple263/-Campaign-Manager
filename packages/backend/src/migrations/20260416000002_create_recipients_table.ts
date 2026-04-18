@@ -4,7 +4,7 @@ export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable("recipients", (table) => {
     table.uuid("id").primary();
     table.string("email", 255).notNullable().unique();
-    table.string("name", 255).nullable();
+    table.string("name", 255).notNullable();
     table.timestamp("created_at").defaultTo(knex.fn.now());
 
     // Index for cursor-based pagination

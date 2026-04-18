@@ -35,8 +35,13 @@ const CampaignDetailPage = () => {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const confirm = useConfirm();
 
-  const { data: campaignData, isLoading, error } = useCampaign(id!);
-  const { data: stats } = useStats(id!);
+  const {
+    data: campaignData,
+    isLoading,
+    error,
+    refetch: refetchCampaign,
+  } = useCampaign(id!);
+  const { data: stats, refetch: refetchStats } = useStats(id!);
   const deleteMutation = useDeleteCampaign();
   const scheduleMutation = useScheduleCampaign();
   const sendMutation = useSendCampaign();
@@ -71,7 +76,7 @@ const CampaignDetailPage = () => {
     });
     if (confirmed) {
       deleteMutation.mutate(id!, {
-        onSuccess: () => navigate("/campaigns"),
+        onSuccess: () => navigate("/campaigns", { replace: true }),
       });
     }
   };
@@ -97,7 +102,15 @@ const CampaignDetailPage = () => {
       confirmButtonClass: "bg-green-600 hover:bg-green-700",
     });
     if (confirmed) {
-      sendMutation.mutate(id!);
+      sendMutation.mutate(id!, {
+        onSuccess: () => {
+          // refetch campaign data to update status and stats
+          setTimeout(() => {
+            refetchCampaign();
+            refetchStats();
+          }, 2000); // fake delay to allow backend to process sending
+        },
+      });
     }
   };
 

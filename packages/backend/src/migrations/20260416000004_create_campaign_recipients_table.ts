@@ -11,14 +11,14 @@ export async function up(knex: Knex): Promise<void> {
       .uuid("campaign_id")
       .notNullable()
       .references("id")
-      .inTable("campaigns");
-    // .onDelete("CASCADE");
+      .inTable("campaigns")
+      .onDelete("CASCADE");
     table
       .uuid("recipient_id")
       .notNullable()
       .references("id")
-      .inTable("recipients");
-    // .onDelete("CASCADE");
+      .inTable("recipients")
+      .onDelete("CASCADE");
     table
       .specificType("status", "campaign_recipient_status")
       .notNullable()

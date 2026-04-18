@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 
-import { config } from "../../config/index.js";
-import { RESPONSE_STATUS } from "../../shared/constants/index.js";
+import { config } from "@/config/index";
+import { RESPONSE_STATUS } from "@/shared/constants/index.js";
 
-import { authService } from "./auth.service.js";
+import { authService } from "./auth.service";
 
-import type { RegisterInput, LoginInput } from "./auth.types.js";
+import type { RegisterInput, LoginInput } from "./auth.types";
 
 const cookieOptions = {
   httpOnly: config.cookie.httpOnly,

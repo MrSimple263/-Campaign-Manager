@@ -1,4 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+} from "@tanstack/react-query";
+
+import { Campaign, PaginatedResponse } from "@/types";
 
 import * as campaignsApi from "../api/campaigns";
 
@@ -18,9 +25,15 @@ export const campaignKeys = {
 };
 
 export const useCampaigns = (params: CampaignParams = {}) => {
-  return useQuery({
+  return useInfiniteQuery<PaginatedResponse<Campaign>>({
     queryKey: campaignKeys.list(params),
-    queryFn: () => campaignsApi.getCampaigns(params),
+    queryFn: ({ pageParam }) =>
+      campaignsApi.getCampaigns({
+        ...params,
+        cursor: typeof pageParam === "string" ? pageParam : undefined,
+      }),
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 };
 

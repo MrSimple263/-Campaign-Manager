@@ -16,6 +16,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  
+  migration:
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile.migrate
+    container_name: campaign_manager_migration
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/campaign_manager
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   backend:
     build:
@@ -25,21 +37,13 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5433/campaign_manager
-      DB_HOST: postgres
-      DB_PORT: 5433
-      DB_NAME: campaign_manager
-      DB_USER: postgres
-      DB_PASSWORD: postgres
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/campaign_manager
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
       JWT_EXPIRES_IN: 24h
     depends_on:
       postgres:
-        condition: service_healthy
-    volumes:
-      - ./packages/backend:/app/packages/backend
-      - /app/packages/backend/node_modules
+        condition: service_healthy 
 
   frontend:
     build:
@@ -47,14 +51,11 @@ services:
       dockerfile: packages/frontend/Dockerfile
     container_name: campaign_manager_frontend
     ports:
-      - "5173:5173"
+      - "80:80"
     environment:
-      VITE_API_URL: http://localhost:3000
+      VITE_API_URL: /api
     depends_on:
       - backend
-    volumes:
-      - ./packages/frontend:/app/packages/frontend
-      - /app/packages/frontend/node_modules
 
 volumes:
   postgres_data:

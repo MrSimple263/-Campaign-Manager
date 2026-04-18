@@ -3,7 +3,7 @@ import type {
   CampaignStatus,
   CampaignRecipientWithDetails,
   PaginatedQuery,
-} from "../../shared/types/index.js";
+} from "@/shared/types/index";
 
 // Query types
 export interface CampaignQuery extends PaginatedQuery {

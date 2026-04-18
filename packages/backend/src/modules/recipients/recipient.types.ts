@@ -1,4 +1,4 @@
-import type { Recipient, PaginatedQuery } from "../../shared/types/index.js";
+import type { Recipient, PaginatedQuery } from "@/shared/types/index";
 
 // Query types
 export interface RecipientQuery extends PaginatedQuery {

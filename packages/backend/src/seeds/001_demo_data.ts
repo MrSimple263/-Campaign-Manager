@@ -1,6 +1,6 @@
 import { Knex } from "knex";
 
-import { generateUuidV7, hashPassword } from "../shared/utils/index.js";
+import { generateUuidV7, hashPassword } from "../shared/utils/index";
 
 export async function seed(knex: Knex): Promise<void> {
   // Clean existing data (in reverse order of dependencies)
@@ -10,7 +10,7 @@ export async function seed(knex: Knex): Promise<void> {
   await knex("users").del();
 
   // Create demo user
-  const demoUserId = generateUuidV7();
+  const demoUserId = "019d9cba-0df9-7f66-8147-f4e0c58bb866";
   const passwordHash = await hashPassword("password123");
 
   await knex("users").insert({
@@ -75,87 +75,57 @@ export async function seed(knex: Knex): Promise<void> {
   await knex("recipients").insert(recipients);
   console.log(`Created ${recipients.length} sample recipients`);
 
-  // Create campaigns in various states
-  const campaigns = [
-    {
+  // Create 50 campaigns (mix of draft, scheduled, sent)
+  const campaigns = Array.from({ length: 50 }).map((_, i) => {
+    const status = i % 3 === 0 ? "sent" : i % 3 === 1 ? "scheduled" : "draft";
+    const scheduled_at =
+      status === "scheduled"
+        ? new Date(Date.now() + (i + 1) * 24 * 60 * 60 * 1000)
+        : undefined;
+    return {
       id: generateUuidV7(),
-      name: "Welcome Campaign",
-      subject: "Welcome to our platform!",
-      body: "Dear {{name}},\n\nWelcome to our platform! We're excited to have you on board.\n\nBest regards,\nThe Team",
-      status: "sent",
+      name: `Campaign ${i + 1}`,
+      subject: `Subject for Campaign ${i + 1}`,
+      body: `Body for Campaign ${i + 1}`,
+      status,
+      scheduled_at,
       created_by: demoUserId,
-    },
-    {
-      id: generateUuidV7(),
-      name: "Product Launch",
-      subject: "Introducing our new product!",
-      body: "Hello {{name}},\n\nWe're thrilled to announce our latest product launch!\n\nCheck it out at our website.\n\nBest,\nThe Team",
-      status: "scheduled",
-      scheduled_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-      created_by: demoUserId,
-    },
-    {
-      id: generateUuidV7(),
-      name: "Newsletter Draft",
-      subject: "Monthly Newsletter - April 2026",
-      body: "Hi {{name}},\n\nHere's what happened this month:\n\n- Feature 1\n- Feature 2\n- Feature 3\n\nStay tuned for more updates!\n\nCheers,\nThe Team",
-      status: "draft",
-      created_by: demoUserId,
-    },
-    {
-      id: generateUuidV7(),
-      name: "Special Offer",
-      subject: "Exclusive 20% discount just for you!",
-      body: "Dear {{name}},\n\nAs a valued customer, we're offering you an exclusive 20% discount on all purchases this week.\n\nUse code: SPECIAL20\n\nHappy shopping!\nThe Team",
-      status: "draft",
-      created_by: demoUserId,
-    },
-  ];
+    };
+  });
 
   await knex("campaigns").insert(campaigns);
   console.log(`Created ${campaigns.length} sample campaigns`);
 
-  // Create campaign recipients for the "sent" campaign
-  const sentCampaign = campaigns[0];
-  const sentCampaignRecipients = recipients.slice(0, 5).map((r) => ({
-    campaign_id: sentCampaign.id,
-    recipient_id: r.id,
-    status: Math.random() < 0.9 ? "sent" : "failed",
-    sent_at: Math.random() < 0.9 ? new Date() : null,
-    opened_at: Math.random() < 0.3 ? new Date() : null,
-  }));
-
-  await knex("campaign_recipients").insert(sentCampaignRecipients);
-
-  // Create campaign recipients for the "scheduled" campaign
-  const scheduledCampaign = campaigns[1];
-  const scheduledCampaignRecipients = recipients.slice(3, 8).map((r) => ({
-    campaign_id: scheduledCampaign.id,
-    recipient_id: r.id,
-    status: "pending",
-  }));
-
-  await knex("campaign_recipients").insert(scheduledCampaignRecipients);
-
-  // Create campaign recipients for the draft campaigns
-  const draftCampaign1 = campaigns[2];
-  const draftCampaign1Recipients = recipients.slice(0, 3).map((r) => ({
-    campaign_id: draftCampaign1.id,
-    recipient_id: r.id,
-    status: "pending",
-  }));
-
-  await knex("campaign_recipients").insert(draftCampaign1Recipients);
-
-  const draftCampaign2 = campaigns[3];
-  const draftCampaign2Recipients = recipients.map((r) => ({
-    campaign_id: draftCampaign2.id,
-    recipient_id: r.id,
-    status: "pending",
-  }));
-
-  await knex("campaign_recipients").insert(draftCampaign2Recipients);
-
+  // Attach all recipients to every campaign
+  let allCampaignRecipients: Array<{
+    campaign_id: string;
+    recipient_id: string;
+    status: string;
+    sent_at?: Date | null;
+    opened_at?: Date | null;
+  }> = [];
+  for (const campaign of campaigns) {
+    const status = campaign.status;
+    const campaignRecipients = recipients.map((r) => {
+      if (status === "sent") {
+        return {
+          campaign_id: campaign.id,
+          recipient_id: r.id,
+          status: Math.random() < 0.9 ? "sent" : "failed",
+          sent_at: Math.random() < 0.9 ? new Date() : null,
+          opened_at: Math.random() < 0.3 ? new Date() : null,
+        };
+      } else {
+        return {
+          campaign_id: campaign.id,
+          recipient_id: r.id,
+          status: status === "scheduled" ? "pending" : "pending",
+        };
+      }
+    });
+    allCampaignRecipients = allCampaignRecipients.concat(campaignRecipients);
+  }
+  await knex("campaign_recipients").insert(allCampaignRecipients);
   console.log("Created campaign-recipient associations");
   console.log("Seed completed successfully!");
 }

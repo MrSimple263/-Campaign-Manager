@@ -1,13 +1,13 @@
-import { AppError } from "../../shared/middleware/index.js";
+import { AppError } from "@/shared/middleware/index";
 
-import { recipientRepository } from "./recipient.repository.js";
+import { recipientRepository } from "./recipient.repository";
 
 import type {
   RecipientQuery,
   CreateRecipientInput,
   RecipientListResponse,
-} from "./recipient.types.js";
-import type { Recipient } from "../../shared/types/index.js";
+} from "./recipient.types";
+import type { Recipient } from "../../shared/types/index";
 
 export const recipientService = {
   async getRecipients(options: RecipientQuery): Promise<RecipientListResponse> {

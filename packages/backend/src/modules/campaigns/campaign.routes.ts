@@ -1,13 +1,13 @@
 import { Router } from "express";
 
-import { authenticate, validate } from "../../shared/middleware/index.js";
+import { authenticate, validate } from "@/shared/middleware/index";
 import {
   createCampaignSchema,
   updateCampaignSchema,
   scheduleSchema,
-} from "../../validations/schemas.js";
+} from "@/validations/schemas";
 
-import { campaignController } from "./campaign.controller.js";
+import { campaignController } from "./campaign.controller";
 
 const router = Router();
 
@@ -24,7 +24,7 @@ router.post(
   campaignController.createCampaign,
 );
 
-router.put(
+router.patch(
   "/:id",
   validate(updateCampaignSchema),
   campaignController.updateCampaign,

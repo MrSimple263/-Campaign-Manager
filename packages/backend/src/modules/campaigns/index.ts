@@ -1,5 +1,5 @@
-export { campaignController } from "./campaign.controller.js";
-export { campaignService } from "./campaign.service.js";
-export { campaignRepository } from "./campaign.repository.js";
-export { default as campaignRoutes } from "./campaign.routes.js";
-export * from "./campaign.types.js";
+export { campaignController } from "./campaign.controller";
+export { campaignService } from "./campaign.service";
+export { campaignRepository } from "./campaign.repository";
+export { default as campaignRoutes } from "./campaign.routes";
+export * from "./campaign.types";

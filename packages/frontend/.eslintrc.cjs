@@ -25,7 +25,7 @@ module.exports = {
   settings: {
     "import/resolver": {
       typescript: {
-        project: "./packages/frontend/tsconfig.eslint.json",
+        project: "./packages/frontend/tsconfig.json",
       },
     },
     react: {

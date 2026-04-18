@@ -1,18 +1,18 @@
-import db from "../../db/index.js";
+import db from "@/db/index.js";
 import {
   TABLES,
   CAMPAIGN_STATUS,
   RECIPIENT_STATUS,
-} from "../../shared/constants/index.js";
-import { generateUuidV7 } from "../../shared/utils/index.js";
+} from "@/shared/constants/index";
+import { generateUuidV7 } from "@/shared/utils/index";
 
-import type { CampaignQuery, CampaignListItem } from "./campaign.types.js";
+import type { CampaignQuery, CampaignListItem } from "./campaign.types";
 import type {
   Campaign,
   CampaignStatus,
   CampaignStats,
   CampaignRecipientWithDetails,
-} from "../../shared/types/index.js";
+} from "@/shared/types/index";
 
 export interface CreateCampaignData {
   name: string;
@@ -50,61 +50,27 @@ export const campaignRepository = {
     userId: string,
     options: CampaignQuery,
   ): Promise<FindManyResult> {
-    const { limit = 20, cursor, status } = options;
+    const { limit = 20, cursor } = options;
 
-    let query = db(TABLES.CAMPAIGNS)
+    const campaigns = await db(TABLES.CAMPAIGNS)
       .where({ created_by: userId })
-      .orderBy("created_at", "desc")
-      .orderBy("id", "desc");
+      .where((qb) => {
+        if (cursor) {
+          qb.where("id", "<", cursor);
+        }
+      })
+      .orderBy("id", "desc")
+      .limit(limit + 1); // Fetch one extra to determine if there are more results
 
-    // Apply status filter
-    if (status) {
-      query = query.where({ status });
-    }
-
-    // Apply cursor-based pagination
-    if (cursor) {
-      const cursorRecord = await db(TABLES.CAMPAIGNS)
-        .where({ id: cursor })
-        .first();
-      if (cursorRecord) {
-        query = query.where((builder) => {
-          builder
-            .where("created_at", "<", cursorRecord.created_at)
-            .orWhere((b) => {
-              b.where("created_at", "=", cursorRecord.created_at).where(
-                "id",
-                "<",
-                cursor,
-              );
-            });
-        });
-      }
-    }
-
-    // Fetch one extra to determine if there are more results
-    const campaigns = await query.limit(limit + 1);
     const hasMore = campaigns.length > limit;
 
     if (hasMore) {
       campaigns.pop();
     }
 
-    // Add recipient count to each campaign
-    const campaignsWithCount = await Promise.all(
-      campaigns.map(async (campaign) => {
-        const [{ count }] = await db(TABLES.CAMPAIGN_RECIPIENTS)
-          .where({ campaign_id: campaign.id })
-          .count("recipient_id as count");
-        return { ...campaign, recipient_count: Number(count) };
-      }),
-    );
+    const nextCursor = hasMore ? campaigns[campaigns.length - 1]?.id : null;
 
-    const nextCursor = hasMore
-      ? campaignsWithCount[campaignsWithCount.length - 1]?.id
-      : null;
-
-    return { data: campaignsWithCount, hasMore, nextCursor };
+    return { data: campaigns, hasMore, nextCursor };
   },
 
   async create(data: CreateCampaignData): Promise<Campaign> {

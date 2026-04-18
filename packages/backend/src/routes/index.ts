@@ -1,14 +1,12 @@
 import { Router } from "express";
 
-import { authRoutes } from "../modules/auth/index.js";
-import { campaignRoutes } from "../modules/campaigns/index.js";
-import { recipientRoutes } from "../modules/recipients/index.js";
+import { authRoutes } from "../modules/auth/index";
+import { campaignRoutes } from "../modules/campaigns/index";
 
 const router = Router();
 
 router.use("/auth", authRoutes);
 router.use("/campaigns", campaignRoutes);
-router.use("/recipients", recipientRoutes);
 
 // Health check
 router.get("/health", (_req, res) => {

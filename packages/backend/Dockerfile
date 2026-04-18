@@ -1,22 +1,42 @@
-FROM node:20-alpine
+# --- Build Stage ---
+FROM node:20-slim AS builder
+WORKDIR /app
+
+RUN corepack enable
+
+COPY .yarnrc.yml yarn.lock package.json ./
+COPY tsconfig.base.json ./
+COPY packages/backend ./packages/backend
+
+# Install full deps for build
+RUN yarn workspaces focus backend
+
+# Build backend
+RUN yarn build:backend
+
+
+# --- Production Stage ---
+FROM node:20-slim
+
+# Thiết lập biến môi trường
+ENV TZ=UTC
 
 WORKDIR /app
 
-# Copy root package files
-COPY package.json yarn.lock ./
-COPY tsconfig.base.json ./
+# Copy only necessary files
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/.yarn ./.yarn
+COPY --from=builder /app/.yarnrc.yml ./
+COPY --from=builder /app/yarn.lock ./
 
-# Copy backend package
-COPY packages/backend/package.json ./packages/backend/
+COPY --from=builder /app/packages/backend/package.json ./packages/backend/package.json
+COPY --from=builder /app/packages/backend/dist ./packages/backend/dist
 
-# Install dependencies
-RUN corepack enable && yarn install
+# Install only production deps
+RUN corepack enable && yarn workspaces focus backend --production
 
-# Copy backend source
-COPY packages/backend ./packages/backend
-
-WORKDIR /app/packages/backend
-
+# Expose port
 EXPOSE 3000
 
-CMD ["yarn", "dev"]
+# Start app
+CMD ["node", "packages/backend/dist/index.js"]

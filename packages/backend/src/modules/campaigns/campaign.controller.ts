@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 
-import { RESPONSE_STATUS } from "../../shared/constants/index.js";
+import { RESPONSE_STATUS } from "@/shared/constants/index";
 
 import { campaignService } from "./campaign.service.js";
 
